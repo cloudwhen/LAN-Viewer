@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>局域网共享文件查看器</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .mode-switch {
+      padding: 15px 30px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #e9ecef;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .mode-btn {
+      padding: 10px 25px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      background: #e9ecef;
+      color: #6c757d;
+    }
+
+    .mode-btn.active {
+      background: #667eea;
+      color: white;
+    }
+
+    .mode-btn:hover:not(.active) {
+      background: #dee2e6;
+    }
+
+    .toolbar {
+      padding: 20px 30px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #e9ecef;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .breadcrumb-item {
+      color: #667eea;
+      cursor: pointer;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .breadcrumb-item:hover {
+      background: #e9ecef;
+    }
+
+    .breadcrumb-separator {
+      color: #6c757d;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .network-input {
+      padding: 10px 15px;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      font-size: 14px;
+      width: 200px;
+      transition: border-color 0.2s;
+    }
+
+    .network-input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5568d3;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #5a6268;
+    }
+
+    .file-list {
+      padding: 20px 30px;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      padding: 15px;
+      border-bottom: 1px solid #e9ecef;
+      transition: background 0.2s;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+
+    .file-item:hover {
+      background: #f8f9fa;
+    }
+
+    .file-icon {
+      font-size: 24px;
+      margin-right: 15px;
+      width: 40px;
+      text-align: center;
+    }
+
+    .file-info {
+      flex: 1;
+    }
+
+    .file-name {
+      font-weight: 500;
+      color: #212529;
+      margin-bottom: 4px;
+    }
+
+    .file-meta {
+      font-size: 12px;
+      color: #6c757d;
+    }
+
+    .file-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .action-btn {
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.2s;
+    }
+
+    .action-btn:hover {
+      background: #5a6268;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #6c757d;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .split-container {
+      display: flex;
+      height: calc(100vh - 200px);
+      min-height: 500px;
+    }
+
+    .left-panel {
+      width: 300px;
+      border-right: 1px solid #e9ecef;
+      overflow-y: auto;
+      background: #f8f9fa;
+    }
+
+    .right-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 15px 20px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #e9ecef;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-title {
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .back-btn {
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.2s;
+    }
+
+    .back-btn:hover {
+      background: #5a6268;
+    }
+
+    .back-btn:disabled {
+      background: #dee2e6;
+      cursor: not-allowed;
+    }
+
+    .computer-list {
+      padding: 10px;
+    }
+
+    .computer-item {
+      padding: 12px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-bottom: 5px;
+    }
+
+    .computer-item:hover {
+      background: #e9ecef;
+    }
+
+    .computer-item.active {
+      background: #667eea;
+      color: white;
+    }
+
+    .computer-item.active .computer-meta {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .computer-name {
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .computer-meta {
+      font-size: 12px;
+      color: #6c757d;
+    }
+
+    .file-list-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📁 局域网共享文件查看器</h1>
+      <p>浏览、下载和上传共享文件</p>
+    </div>
+
+    <div class="mode-switch">
+      <button class="mode-btn active" onclick="switchMode('local')" id="localModeBtn">本地文件</button>
+      <button class="mode-btn" onclick="switchMode('network')" id="networkModeBtn">局域网共享</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="breadcrumb" id="breadcrumb">
+        <span class="breadcrumb-item" data-path="">根目录</span>
+      </div>
+      <div class="action-buttons">
+        <input type="text" id="networkInput" class="network-input" placeholder="输入网段 (如: 192.168.1)" style="display: none;">
+        <button class="btn btn-primary" id="scanBtn" onclick="scanNetwork()" style="display: none;">
+          🔄 扫描局域网
+        </button>
+        <button class="btn btn-primary" id="uploadBtn" onclick="document.getElementById('fileInput').click()">
+          📤 上传文件
+        </button>
+      </div>
+      <input type="file" id="fileInput" onchange="uploadFile(event)">
+    </div>
+
+    <div class="split-container" id="splitContainer" style="display: none;">
+      <div class="left-panel">
+        <div class="panel-header">
+          <span class="panel-title">🖥️ 计算机列表</span>
+        </div>
+        <div class="computer-list" id="computerList">
+          <div class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <p>点击"扫描局域网"开始扫描</p>
+          </div>
+        </div>
+      </div>
+      <div class="right-panel">
+        <div class="panel-header">
+          <span class="panel-title" id="rightPanelTitle">📁 文件列表</span>
+          <button class="back-btn" id="backBtn" onclick="goBack()" disabled>⬅️ 返回</button>
+        </div>
+        <div class="file-list-container" id="fileListContainer">
+          <div class="empty-state">
+            <div class="empty-state-icon">📂</div>
+            <p>请选择左侧计算机查看共享文件</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="file-list" id="localFileList">
+      <div class="empty-state">
+        <div class="empty-state-icon">📂</div>
+        <p>加载中...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentMode = 'local';
+    let currentPath = '';
+    let currentFiles = [];
+    let currentComputer = null;
+    let currentShare = null;
+    let pathHistory = [];
+
+    function switchMode(mode) {
+      currentMode = mode;
+      document.getElementById('localModeBtn').classList.toggle('active', mode === 'local');
+      document.getElementById('networkModeBtn').classList.toggle('active', mode === 'network');
+      document.getElementById('scanBtn').style.display = mode === 'network' ? 'block' : 'none';
+      document.getElementById('networkInput').style.display = mode === 'network' ? 'block' : 'none';
+      document.getElementById('uploadBtn').style.display = mode === 'local' ? 'block' : 'none';
+      document.getElementById('splitContainer').style.display = mode === 'network' ? 'flex' : 'none';
+      document.getElementById('localFileList').style.display = mode === 'local' ? 'block' : 'none';
+
+      if (mode === 'local') {
+        loadLocalFiles('');
+      } else {
+        showNetworkView();
+      }
+    }
+
+    async function loadLocalFiles(path = '') {
+      try {
+        const response = await fetch(`/api/files${path ? '/' + path : ''}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          currentFiles = data.files;
+          renderFilesInLocal(currentFiles);
+          updateBreadcrumb(path);
+        } else {
+          showError(data.error);
+        }
+      } catch (error) {
+        showError('加载文件失败: ' + error.message);
+      }
+    }
+
+    async function scanNetwork() {
+      const networkSegment = document.getElementById('networkInput').value.trim();
+      
+      if (!networkSegment) {
+        showNetworkView();
+        return;
+      }
+
+      showLoadingInRight(`正在扫描网段 ${networkSegment}.x...`);
+      
+      try {
+        const response = await fetch(`/api/network/computers?segment=${encodeURIComponent(networkSegment)}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          renderComputers(data.computers);
+          clearRightPanel();
+        } else {
+          showErrorInRight(data.error);
+        }
+      } catch (error) {
+        showErrorInRight('扫描失败: ' + error.message);
+      }
+    }
+
+    async function loadShares(computer) {
+      currentComputer = computer;
+      currentShare = null;
+      pathHistory = [];
+      document.getElementById('backBtn').disabled = true;
+      
+      showLoadingInRight(`正在获取 ${computer.name} 的共享文件夹...`);
+      
+      try {
+        const response = await fetch(`/api/network/shares?computer=${encodeURIComponent(computer.path)}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          renderShares(data.shares);
+          document.getElementById('rightPanelTitle').textContent = `📁 ${computer.name} - 共享文件夹`;
+          highlightComputer(computer);
+        } else {
+          showErrorInRight(data.error);
+        }
+      } catch (error) {
+        showErrorInRight('获取共享文件夹失败: ' + error.message);
+      }
+    }
+
+    async function loadNetworkFiles(share, path = '') {
+      currentShare = share;
+      currentPath = path;
+      
+      if (path) {
+        pathHistory.push({ share, path: path.substring(0, path.lastIndexOf('/')) || '' });
+      }
+      
+      document.getElementById('backBtn').disabled = pathHistory.length === 0;
+      
+      showLoadingInRight('正在加载文件...');
+      
+      try {
+        const response = await fetch(`/api/network/files?share=${encodeURIComponent(share.path)}&path=${encodeURIComponent(path)}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          currentFiles = data.files;
+          renderFilesInRight(currentFiles);
+          document.getElementById('rightPanelTitle').textContent = `📁 ${share.name}${path ? ' / ' + path : ''}`;
+        } else {
+          showErrorInRight(data.error);
+        }
+      } catch (error) {
+        showErrorInRight('加载文件失败: ' + error.message);
+      }
+    }
+
+    function goBack() {
+      if (pathHistory.length === 0) {
+        loadShares(currentComputer);
+        return;
+      }
+
+      const previous = pathHistory.pop();
+      if (previous.path) {
+        loadNetworkFiles(previous.share, previous.path);
+      } else {
+        loadShares(currentComputer);
+      }
+    }
+
+    function renderComputers(computers) {
+      const computerList = document.getElementById('computerList');
+      
+      if (!computers || computers.length === 0) {
+        computerList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🖥️</div>
+            <p>未发现局域网计算机</p>
+            <p style="font-size: 12px; margin-top: 10px;">请确保其他计算机已开启网络共享</p>
+          </div>
+        `;
+        return;
+      }
+
+      computerList.innerHTML = computers.map(computer => `
+        <div class="computer-item" onclick="loadShares(${JSON.stringify(computer).replace(/"/g, '&quot;')})" data-computer-name="${computer.name}">
+          <div class="computer-name">${computer.name}</div>
+          <div class="computer-meta">${computer.ip || ''}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderShares(shares) {
+      const fileListContainer = document.getElementById('fileListContainer');
+      
+      if (!shares || shares.length === 0) {
+        fileListContainer.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📁</div>
+            <p>未发现共享文件夹</p>
+            <p style="font-size: 12px; margin-top: 10px;">请确保计算机已开启文件共享</p>
+          </div>
+        `;
+        return;
+      }
+
+      fileListContainer.innerHTML = shares.map(share => `
+        <div class="file-item" onclick="loadNetworkFiles(${JSON.stringify(share).replace(/"/g, '&quot;')})">
+          <div class="file-icon">📂</div>
+          <div class="file-info">
+            <div class="file-name">${share.name}</div>
+            <div class="file-meta">${share.path}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderFilesInRight(files) {
+      const fileListContainer = document.getElementById('fileListContainer');
+      
+      if (!files || files.length === 0) {
+        fileListContainer.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📂</div>
+            <p>此目录为空</p>
+          </div>
+        `;
+        return;
+      }
+
+      fileListContainer.innerHTML = files.map(file => `
+        <div class="file-item" onclick="${file.isDirectory ? `navigateTo('${file.path}')` : `downloadFile('${file.path}')`}">
+          <div class="file-icon">${file.isDirectory ? '📁' : '📄'}</div>
+          <div class="file-info">
+            <div class="file-name">${file.name}</div>
+            <div class="file-meta">
+              ${file.isDirectory ? '文件夹' : formatSize(file.size)} • ${formatDate(file.modified)}
+            </div>
+          </div>
+          <div class="file-actions">
+            ${!file.isDirectory ? `<button class="action-btn" onclick="event.stopPropagation(); downloadFile('${file.path}')">下载</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderFilesInLocal(files) {
+      const fileList = document.getElementById('localFileList');
+      
+      if (!files || files.length === 0) {
+        fileList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📂</div>
+            <p>此目录为空</p>
+          </div>
+        `;
+        return;
+      }
+
+      fileList.innerHTML = files.map(file => `
+        <div class="file-item" onclick="${file.isDirectory ? `navigateTo('${file.path}')` : `downloadFile('${file.path}')`}">
+          <div class="file-icon">${file.isDirectory ? '📁' : '📄'}</div>
+          <div class="file-info">
+            <div class="file-name">${file.name}</div>
+            <div class="file-meta">
+              ${file.isDirectory ? `${file.children.length} 项` : formatSize(file.size)} • ${formatDate(file.modified)}
+            </div>
+          </div>
+          <div class="file-actions">
+            ${!file.isDirectory ? `<button class="action-btn" onclick="event.stopPropagation(); downloadFile('${file.path}')">下载</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function navigateTo(path) {
+      currentPath = path;
+      if (currentMode === 'local') {
+        loadLocalFiles(path);
+      } else {
+        loadNetworkFiles(currentShare, path);
+      }
+    }
+
+    function downloadFile(path) {
+      if (currentMode === 'local') {
+        window.location.href = `/api/files/${path}`;
+      } else {
+        window.location.href = `/api/network/download?share=${encodeURIComponent(currentShare.path)}&path=${encodeURIComponent(path)}`;
+      }
+    }
+
+    async function uploadFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      try {
+        const response = await fetch(`/api/upload?path=${currentPath}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-File-Name': file.name
+          },
+          body: file
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          loadLocalFiles(currentPath);
+        } else {
+          showError(data.error);
+        }
+      } catch (error) {
+        showError('上传失败: ' + error.message);
+      }
+
+      event.target.value = '';
+    }
+
+    function showNetworkView() {
+      const computerList = document.getElementById('computerList');
+      computerList.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">🔍</div>
+          <p>点击"扫描局域网"开始扫描</p>
+        </div>
+      `;
+      clearRightPanel();
+    }
+
+    function showLoadingInRight(message) {
+      const fileListContainer = document.getElementById('fileListContainer');
+      fileListContainer.innerHTML = `
+        <div class="loading">
+          <div class="loading-spinner"></div>
+          <p style="margin-top: 20px;">${message}</p>
+        </div>
+      `;
+    }
+
+    function showErrorInRight(message) {
+      const fileListContainer = document.getElementById('fileListContainer');
+      fileListContainer.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">❌</div>
+          <p>${message}</p>
+        </div>
+      `;
+    }
+
+    function clearRightPanel() {
+      const fileListContainer = document.getElementById('fileListContainer');
+      fileListContainer.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📂</div>
+          <p>请选择左侧计算机查看共享文件</p>
+        </div>
+      `;
+      document.getElementById('rightPanelTitle').textContent = '📁 文件列表';
+      document.getElementById('backBtn').disabled = true;
+    }
+
+    function highlightComputer(computer) {
+      const items = document.querySelectorAll('.computer-item');
+      items.forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.computerName === computer.name) {
+          item.classList.add('active');
+        }
+      });
+    }
+
+    function showLoading(message) {
+      const fileList = document.getElementById('localFileList');
+      fileList.innerHTML = `
+        <div class="loading">
+          <div class="loading-spinner"></div>
+          <p style="margin-top: 20px;">${message}</p>
+        </div>
+      `;
+    }
+
+    function showError(message) {
+      const fileList = document.getElementById('localFileList');
+      fileList.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">❌</div>
+          <p>${message}</p>
+        </div>
+      `;
+    }
+
+    function updateBreadcrumb(path) {
+      const breadcrumb = document.getElementById('breadcrumb');
+      breadcrumb.innerHTML = `<span class="breadcrumb-item" data-path="">${path}</span>`;
+    }
+
+    function formatSize(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    function formatDate(date) {
+      return new Date(date).toLocaleString('zh-CN');
+    }
+
+    loadLocalFiles();
+  </script>
+</body>
+</html>
